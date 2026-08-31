@@ -24,16 +24,16 @@ function netlifyDevApiPlugin(): Plugin {
           let handler: ((request: Request) => Promise<Response>) | null = null;
 
           if (pathname === '/api/login') {
-            const mod = await import('./netlify/functions/login.ts');
+            const mod = await import('./api/login.ts');
             handler = mod.default;
           } else if (pathname === '/api/properties') {
-            const mod = await import('./netlify/functions/properties.ts');
+            const mod = await import('./api/properties.ts');
             handler = mod.default;
           } else if (pathname === '/api/projects') {
-            const mod = await import('./netlify/functions/projects.ts');
+            const mod = await import('./api/projects.ts');
             handler = mod.default;
           } else if (pathname === '/api/send-email') {
-            const mod = await import('./netlify/functions/send-email.ts');
+            const mod = await import('./api/send-email.ts');
             handler = mod.default;
           }
 
