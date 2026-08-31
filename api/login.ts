@@ -7,6 +7,10 @@ import {
   createSafeErrorResponse
 } from './security.js';
 
+export const config = {
+  runtime: 'edge',
+};
+
 export default async (request: Request) => {
   if (request.method !== 'POST') {
     return createSafeErrorResponse(405, 'Método no permitido.');

@@ -7,6 +7,10 @@ import {
   createSafeErrorResponse
 } from './security.js';
 
+export const config = {
+  runtime: 'edge',
+};
+
 export default async (request: Request) => {
   const method = request.method;
 

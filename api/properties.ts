@@ -12,6 +12,10 @@ const ALLOWED_CATEGORIES = ['casa', 'apartamento', 'terreno'] as const;
 const ALLOWED_TYPES = ['venta', 'alquiler'] as const;
 const ALLOWED_CURRENCIES = ['USD', 'DOP', 'EUR'] as const;
 
+export const config = {
+  runtime: 'edge',
+};
+
 export default async (request: Request) => {
   const method = request.method;
 

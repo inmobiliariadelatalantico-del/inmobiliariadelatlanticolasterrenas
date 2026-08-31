@@ -8,11 +8,19 @@ import {
   createSafeErrorResponse
 } from './security.js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+export const config = {
+  runtime: 'edge',
+};
 
 export default async (request: Request) => {
   if (request.method !== 'POST') {
     return createSafeErrorResponse(405, 'Método no permitido.');
+  }
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error('RESEND_API_KEY is not defined.');
+    return createSafeErrorResponse(500, 'Error de configuración: La clave de envío de correos no está disponible.');
   }
 
   // Rate limiting to prevent email spam / mail server flooding (Max 5 requests per 5 minutes per IP)
@@ -48,6 +56,7 @@ export default async (request: Request) => {
     const safeSubject = escapeHtml(subject || 'Nueva Consulta Web');
     const safeMessage = escapeHtml(message);
 
+    const resend = new Resend(apiKey);
     const { error } = await resend.emails.send({
       from: 'Contacto Web <onboarding@resend.dev>',
       to: ['inmobiliariadelatalantico@gmail.com'],
