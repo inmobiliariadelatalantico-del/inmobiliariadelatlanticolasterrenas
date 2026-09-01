@@ -1,10 +1,16 @@
 import { Link } from 'react-router-dom';
 import { FaGavel, FaBuilding, FaDraftingCompass, FaArrowRight } from 'react-icons/fa';
 import Footer from './Footer';
+import SEO from './SEO';
 
 export default function Inicio() {
   return (
     <>
+      <SEO
+        title="Bienes Raíces, Legal & Arquitectura en Las Terrenas"
+        description="Venta y alquiler de villas, apartamentos y terrenos en Las Terrenas, Samaná. Asesoría jurídica experta y proyectos de arquitectura en República Dominicana."
+        canonicalPath="/"
+      />
       {/* Hero Section */}
       <section className="relative w-full h-162.5 bg-black overflow-hidden">
         {/* Background Image with Dark Overlay */}

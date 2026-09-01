@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FaDraftingCompass, FaHardHat, FaSearch, FaCalculator, FaCheckCircle, FaEdit, FaTrashAlt, FaWhatsapp, FaEnvelope, FaMapMarkerAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import Footer from './Footer';
+import SEO from './SEO';
 import { useAdmin } from '../context/AdminContext';
 import type { Project } from '../types';
 import { cleanInputString } from '../lib/security';
@@ -148,6 +149,11 @@ export default function Arquitectura() {
 
   return (
     <>
+      <SEO
+        title="Diseño Arquitectónico, Planos y Construcción en Las Terrenas"
+        description="Estudio de arquitectura y construcción en Las Terrenas, Samaná. Diseño residencial y comercial, modelado 3D, presupuestos y supervisión técnica de obras."
+        canonicalPath="/arquitectura"
+      />
       {/* Banner */}
       <section className="bg-brand-blue text-white py-20 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-grid-pattern pointer-events-none" />

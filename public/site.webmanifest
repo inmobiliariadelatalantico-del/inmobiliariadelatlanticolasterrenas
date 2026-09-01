@@ -1,0 +1,21 @@
+{
+  "name": "Inmobiliaria del Atlántico Las Terrenas",
+  "short_name": "Inmo Atlántico",
+  "description": "Servicios Inmobiliarios, Legales y Arquitectura en Las Terrenas, Samaná.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b2545",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

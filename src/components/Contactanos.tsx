@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaWhatsapp, FaEnvelope, FaMapMarkerAlt, FaClock } from 'react-icons/fa';
 import { useLocation } from 'react-router-dom';
 import Footer from './Footer';
+import SEO from './SEO';
 import { cleanInputString, isValidEmail } from '../lib/security';
 
 export default function Contactanos() {
@@ -105,6 +106,11 @@ export default function Contactanos() {
 
   return (
     <>
+      <SEO
+        title="Contáctenos | Inmobiliaria del Atlántico Las Terrenas"
+        description="Póngase en contacto con nuestro equipo de asesores inmobiliarios, abogados y arquitectos en Las Terrenas, Samaná. Atención directa por WhatsApp y correo electrónico."
+        canonicalPath="/contactanos"
+      />
       <section className="bg-slate-50 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 

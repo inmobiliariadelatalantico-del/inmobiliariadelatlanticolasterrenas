@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FaGavel, FaUsers, FaShieldAlt, FaBriefcase, FaUniversity } from 'react-icons/fa';
 import Footer from './Footer';
+import SEO from './SEO';
 
 interface SubService {
   title: string;
@@ -177,6 +178,11 @@ export default function Juridico() {
 
   return (
     <>
+      <SEO
+        title="Servicios Legales y Abogados Inmobiliarios en Las Terrenas, Samaná"
+        description="Bufete legal especializado en derecho inmobiliario, deslindes, transferencias, contratos, derecho civil, laboral y penal en Las Terrenas y Samaná, República Dominicana."
+        canonicalPath="/juridico"
+      />
       {/* Intro Banner */}
       <section className="bg-brand-blue text-white py-20 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-grid-pattern pointer-events-none" />

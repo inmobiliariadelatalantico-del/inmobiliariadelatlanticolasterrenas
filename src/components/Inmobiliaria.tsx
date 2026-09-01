@@ -3,6 +3,7 @@ import { FaClipboardCheck, FaHome, FaTasks, FaKey, FaBed, FaBath, FaRulerCombine
 import { useNavigate } from 'react-router-dom';
 import Carousel from './Carousel';
 import Footer from './Footer';
+import SEO from './SEO';
 import { useAdmin } from '../context/AdminContext';
 import type { Property } from '../types';
 import { cleanInputString } from '../lib/security';
@@ -217,6 +218,11 @@ export default function Inmobiliaria() {
 
   return (
     <>
+      <SEO
+        title="Propiedades en Venta y Alquiler en Las Terrenas, Samaná"
+        description="Villas, casas, apartamentos y terrenos en venta y alquiler en Las Terrenas, Samaná. Gestión inmobiliaria y asesoría legal con Inmobiliaria del Atlántico."
+        canonicalPath="/inmobiliaria"
+      />
       {/* Banner */}
       <section className="bg-brand-blue text-white py-20 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-grid-pattern pointer-events-none" />
