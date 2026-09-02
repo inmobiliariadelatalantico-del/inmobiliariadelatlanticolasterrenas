@@ -62,6 +62,7 @@ export default function Arquitectura() {
 
   const [formTitle, setFormTitle] = useState('');
   const [formLocation, setFormLocation] = useState('');
+  const [formDescription, setFormDescription] = useState('');
   const [formImages, setFormImages] = useState<string[]>([]);
   const [newImageUrl, setNewImageUrl] = useState('');
   const [isProcessingImages, setIsProcessingImages] = useState(false);
@@ -71,6 +72,7 @@ export default function Arquitectura() {
     setEditingProject(null);
     setFormTitle('');
     setFormLocation('');
+    setFormDescription('');
     setFormImages([]);
     setNewImageUrl('');
     setIsProcessingImages(false);
@@ -82,6 +84,7 @@ export default function Arquitectura() {
     setEditingProject(proj);
     setFormTitle(proj.title);
     setFormLocation(proj.location);
+    setFormDescription(proj.description || '');
     const existingImgs = proj.images && proj.images.length > 0
       ? proj.images
       : (proj.image ? [proj.image] : []);
@@ -191,6 +194,7 @@ export default function Arquitectura() {
 
     const cleanTitle = cleanInputString(formTitle, 150);
     const cleanLocation = cleanInputString(formLocation, 200);
+    const cleanDescription = cleanInputString(formDescription, 4000);
 
     if (!cleanTitle || !cleanLocation) {
       alert('El título y la ubicación del proyecto son obligatorios.');
@@ -201,6 +205,7 @@ export default function Arquitectura() {
     const projectData = {
       title: cleanTitle,
       location: cleanLocation,
+      description: cleanDescription,
       image: primaryImage,
       images: formImages.length > 0 ? formImages : [primaryImage]
     };
@@ -461,6 +466,20 @@ export default function Arquitectura() {
                 />
               </div>
 
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Descripción del Proyecto
+                </label>
+                <textarea
+                  rows={3}
+                  value={formDescription}
+                  onChange={e => setFormDescription(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 text-slate-800 dark:text-white"
+                  placeholder="Escriba los detalles, conceptos de diseño, metros cuadrados o características especiales del proyecto..."
+                />
+              </div>
+
               {/* Multi-Images Manager */}
               <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between">
@@ -688,6 +707,18 @@ export default function Arquitectura() {
                   <FaMapMarkerAlt className="text-brand-green mt-0.5 shrink-0" size={16} />
                   <span>{selectedProject.location}</span>
                 </div>
+
+                {/* Project Description */}
+                {selectedProject.description && (
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                    <h5 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">
+                      Descripción
+                    </h5>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                      {selectedProject.description}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Action buttons (WhatsApp Edita / Contact Form) */}

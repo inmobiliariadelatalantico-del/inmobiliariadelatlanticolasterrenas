@@ -39,6 +39,7 @@ export default async (request: Request) => {
         const mainImg = imgs[0] || p.image || '/samana.png';
         return {
           ...p,
+          description: p.description || '',
           image: mainImg,
           images: imgs.length > 0 ? imgs : [mainImg]
         };
@@ -67,6 +68,7 @@ export default async (request: Request) => {
       const rawBody = await request.json().catch(() => ({}));
       const title = sanitizeString(rawBody.title, 150);
       const location = sanitizeString(rawBody.location, 200);
+      const description = sanitizeString(rawBody.description, 4000);
       
       const images = sanitizeImages(rawBody.images, 20);
       const rawImage = sanitizeImageUrl(rawBody.image);
@@ -79,10 +81,25 @@ export default async (request: Request) => {
 
       const id = `proj-${Date.now()}`;
 
-      await sql`
-        INSERT INTO projects (id, title, location, image)
-        VALUES (${id}, ${title}, ${location}, ${storedImage})
-      `;
+      try {
+        await sql`
+          INSERT INTO projects (id, title, location, description, image)
+          VALUES (${id}, ${title}, ${location}, ${description}, ${storedImage})
+        `;
+      } catch {
+        try {
+          await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS description TEXT;`;
+          await sql`
+            INSERT INTO projects (id, title, location, description, image)
+            VALUES (${id}, ${title}, ${location}, ${description}, ${storedImage})
+          `;
+        } catch {
+          await sql`
+            INSERT INTO projects (id, title, location, image)
+            VALUES (${id}, ${title}, ${location}, ${storedImage})
+          `;
+        }
+      }
 
       return new Response(JSON.stringify({ success: true, id }), {
         status: 201,
@@ -100,19 +117,43 @@ export default async (request: Request) => {
 
       const title = sanitizeString(rawBody.title, 150);
       const location = sanitizeString(rawBody.location, 200);
+      const description = sanitizeString(rawBody.description, 4000);
 
       const images = sanitizeImages(rawBody.images, 20);
       const rawImage = sanitizeImageUrl(rawBody.image);
       const primaryImage = images[0] || rawImage || '/samana.png';
       const storedImage = images.length > 1 ? JSON.stringify(images) : primaryImage;
 
-      await sql`
-        UPDATE projects
-        SET title = ${title},
-            location = ${location},
-            image = ${storedImage}
-        WHERE id = ${id}
-      `;
+      try {
+        await sql`
+          UPDATE projects
+          SET title = ${title},
+              location = ${location},
+              description = ${description},
+              image = ${storedImage}
+          WHERE id = ${id}
+        `;
+      } catch {
+        try {
+          await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS description TEXT;`;
+          await sql`
+            UPDATE projects
+            SET title = ${title},
+                location = ${location},
+                description = ${description},
+                image = ${storedImage}
+            WHERE id = ${id}
+          `;
+        } catch {
+          await sql`
+            UPDATE projects
+            SET title = ${title},
+                location = ${location},
+                image = ${storedImage}
+            WHERE id = ${id}
+          `;
+        }
+      }
 
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
