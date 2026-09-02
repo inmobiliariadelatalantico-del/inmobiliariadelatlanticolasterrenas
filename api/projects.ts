@@ -4,6 +4,7 @@ import {
   getSecurityHeaders,
   sanitizeString,
   sanitizeImageUrl,
+  sanitizeImages,
   createSafeErrorResponse
 } from './security.js';
 
@@ -20,7 +21,30 @@ export default async (request: Request) => {
         SELECT * FROM projects 
         ORDER BY id DESC
       `;
-      return new Response(JSON.stringify(projects), {
+      const formatted = projects.map(p => {
+        let imgs: string[] = [];
+        if (p.images) {
+          imgs = Array.isArray(p.images) ? p.images : (typeof p.images === 'string' ? JSON.parse(p.images) : []);
+        } else if (p.image) {
+          try {
+            if (typeof p.image === 'string' && p.image.trim().startsWith('[')) {
+              imgs = JSON.parse(p.image);
+            } else {
+              imgs = [p.image];
+            }
+          } catch {
+            imgs = [p.image];
+          }
+        }
+        const mainImg = imgs[0] || p.image || '/samana.png';
+        return {
+          ...p,
+          image: mainImg,
+          images: imgs.length > 0 ? imgs : [mainImg]
+        };
+      });
+
+      return new Response(JSON.stringify(formatted), {
         status: 200,
         headers: getSecurityHeaders(),
       });
@@ -43,8 +67,11 @@ export default async (request: Request) => {
       const rawBody = await request.json().catch(() => ({}));
       const title = sanitizeString(rawBody.title, 150);
       const location = sanitizeString(rawBody.location, 200);
+      
+      const images = sanitizeImages(rawBody.images, 20);
       const rawImage = sanitizeImageUrl(rawBody.image);
-      const image = rawImage || '/samana.png';
+      const primaryImage = images[0] || rawImage || '/samana.png';
+      const storedImage = images.length > 1 ? JSON.stringify(images) : primaryImage;
 
       if (!title || !location) {
         return createSafeErrorResponse(400, 'El título y la ubicación son campos obligatorios.');
@@ -54,7 +81,7 @@ export default async (request: Request) => {
 
       await sql`
         INSERT INTO projects (id, title, location, image)
-        VALUES (${id}, ${title}, ${location}, ${image})
+        VALUES (${id}, ${title}, ${location}, ${storedImage})
       `;
 
       return new Response(JSON.stringify({ success: true, id }), {
@@ -73,14 +100,17 @@ export default async (request: Request) => {
 
       const title = sanitizeString(rawBody.title, 150);
       const location = sanitizeString(rawBody.location, 200);
+
+      const images = sanitizeImages(rawBody.images, 20);
       const rawImage = sanitizeImageUrl(rawBody.image);
-      const image = rawImage || '/samana.png';
+      const primaryImage = images[0] || rawImage || '/samana.png';
+      const storedImage = images.length > 1 ? JSON.stringify(images) : primaryImage;
 
       await sql`
         UPDATE projects
         SET title = ${title},
             location = ${location},
-            image = ${image}
+            image = ${storedImage}
         WHERE id = ${id}
       `;
 

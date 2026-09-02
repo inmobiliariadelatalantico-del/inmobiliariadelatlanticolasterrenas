@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { FaDraftingCompass, FaHardHat, FaSearch, FaCalculator, FaCheckCircle, FaEdit, FaTrashAlt, FaWhatsapp, FaEnvelope, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaDraftingCompass, FaHardHat, FaSearch, FaCalculator, FaCheckCircle, FaEdit, FaTrashAlt, FaWhatsapp, FaEnvelope, FaMapMarkerAlt, FaCloudUploadAlt, FaStar, FaSpinner, FaImages } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import Carousel from './Carousel';
 import Footer from './Footer';
 import SEO from './SEO';
 import { useAdmin } from '../context/AdminContext';
 import type { Project } from '../types';
 import { cleanInputString } from '../lib/security';
-import { optimizeImageFile } from '../lib/imageOptimizer';
+import { optimizeMultipleImages } from '../lib/imageOptimizer';
 
 export default function Arquitectura() {
   const services = [
@@ -61,13 +62,19 @@ export default function Arquitectura() {
 
   const [formTitle, setFormTitle] = useState('');
   const [formLocation, setFormLocation] = useState('');
-  const [formImage, setFormImage] = useState('');
+  const [formImages, setFormImages] = useState<string[]>([]);
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleOpenAddModal = () => {
     setEditingProject(null);
     setFormTitle('');
     setFormLocation('');
-    setFormImage('');
+    setFormImages([]);
+    setNewImageUrl('');
+    setIsProcessingImages(false);
+    setIsDragging(false);
     setIsModalOpen(true);
   };
 
@@ -75,7 +82,13 @@ export default function Arquitectura() {
     setEditingProject(proj);
     setFormTitle(proj.title);
     setFormLocation(proj.location);
-    setFormImage(proj.image);
+    const existingImgs = proj.images && proj.images.length > 0
+      ? proj.images
+      : (proj.image ? [proj.image] : []);
+    setFormImages(existingImgs);
+    setNewImageUrl('');
+    setIsProcessingImages(false);
+    setIsDragging(false);
     setIsModalOpen(true);
   };
 
@@ -102,17 +115,74 @@ export default function Arquitectura() {
     });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const optimized = await optimizeImageFile(file);
-        setFormImage(optimized);
-      } catch (err) {
-        alert((err as Error).message || 'Error al procesar la imagen.');
-      } finally {
-        e.target.value = '';
+  const handleAddImageUrl = () => {
+    const trimmed = newImageUrl.trim();
+    if (trimmed) {
+      if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('/')) {
+        setFormImages(prev => [...prev, trimmed]);
+        setNewImageUrl('');
+      } else {
+        alert('Por favor ingrese una URL válida que comience con https://');
       }
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setFormImages(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleMakeMainImage = (index: number) => {
+    if (index === 0) return;
+    setFormImages(prev => {
+      const copy = [...prev];
+      const [selected] = copy.splice(index, 1);
+      return [selected, ...copy];
+    });
+  };
+
+  const processFiles = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    setIsProcessingImages(true);
+    try {
+      const { successful, errors } = await optimizeMultipleImages(files);
+      if (errors.length > 0) {
+        alert(errors.join('\n'));
+      }
+      if (successful.length > 0) {
+        setFormImages(prev => [...prev, ...successful]);
+      }
+    } catch (err) {
+      alert('Error al procesar las fotos seleccionadas.');
+    } finally {
+      setIsProcessingImages(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      await processFiles(e.target.files);
+      e.target.value = '';
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processFiles(e.dataTransfer.files);
     }
   };
 
@@ -127,10 +197,12 @@ export default function Arquitectura() {
       return;
     }
 
+    const primaryImage = formImages[0] || '/samana.png';
     const projectData = {
       title: cleanTitle,
       location: cleanLocation,
-      image: formImage.trim() || '/samana.png'
+      image: primaryImage,
+      images: formImages.length > 0 ? formImages : [primaryImage]
     };
 
     if (editingProject) {
@@ -299,6 +371,14 @@ export default function Arquitectura() {
                         </div>
                       )}
 
+                      {/* Images count badge */}
+                      {proj.images && proj.images.length > 1 && (
+                        <div className="absolute top-4 right-4 z-20 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-semibold rounded-full flex items-center gap-1 shadow-md">
+                          <FaImages size={10} />
+                          <span>{proj.images.length} fotos</span>
+                        </div>
+                      )}
+
                       <img
                         src={proj.image}
                         alt={proj.title}
@@ -334,10 +414,10 @@ export default function Arquitectura() {
       {/* Project Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+          <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
 
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">
                 {editingProject ? 'Editar Proyecto' : 'Agregar Nuevo Proyecto'}
               </h3>
@@ -350,7 +430,7 @@ export default function Arquitectura() {
             </div>
 
             {/* Modal Body Form */}
-            <form onSubmit={handleSave} className="p-6 space-y-4">
+            <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto">
               {/* Title */}
               <div>
                 <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
@@ -381,71 +461,169 @@ export default function Arquitectura() {
                 />
               </div>
 
-              {/* Cover Image Visual Manager */}
-              <div className="space-y-3">
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                  Foto de Portada del Proyecto
-                </label>
-
-                {/* Live Preview */}
-                {formImage ? (
-                  <div className="relative aspect-video max-w-sm rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 shadow-inner group">
-                    <img
-                      src={formImage}
-                      alt="Vista previa de portada"
-                      className="w-full h-full object-cover"
-                    />
+              {/* Multi-Images Manager */}
+              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Galería de Fotos del Proyecto
+                    </label>
+                    <span className="px-2 py-0.5 bg-brand-blue/10 dark:bg-brand-blue/20 text-brand-blue dark:text-brand-blue-light text-xs font-semibold rounded-full">
+                      {formImages.length} {formImages.length === 1 ? 'foto' : 'fotos'}
+                    </span>
+                  </div>
+                  {formImages.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setFormImage('')}
-                      className="absolute top-2 right-2 p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md transition-transform hover:scale-105 cursor-pointer"
-                      title="Quitar foto"
+                      onClick={() => {
+                        if (window.confirm('¿Desea eliminar todas las fotos cargadas?')) {
+                          setFormImages([]);
+                        }
+                      }}
+                      className="text-xs text-red-500 hover:text-red-700 font-medium cursor-pointer transition-colors"
                     >
-                      ✕
+                      Eliminar todas
                     </button>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-400">
-                    No se ha seleccionado ninguna foto de portada. Cargue una foto de su computadora o pegue un enlace.
+                  )}
+                </div>
+
+                {/* Drag & Drop Multi-Image Upload Area */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                    isDragging
+                      ? 'border-brand-blue bg-brand-blue/10 scale-[1.01]'
+                      : 'border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 hover:border-brand-blue/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    id="architecture-multi-images"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,image/jpg"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+
+                  {isProcessingImages ? (
+                    <div className="py-4 flex flex-col items-center justify-center gap-2 text-brand-blue">
+                      <FaSpinner className="animate-spin" size={28} />
+                      <span className="text-sm font-semibold">Procesando y optimizando fotos...</span>
+                      <span className="text-xs text-slate-400">Por favor espere un momento</span>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="architecture-multi-images"
+                      className="flex flex-col items-center justify-center cursor-pointer select-none"
+                    >
+                      <div className="w-12 h-12 mb-2 rounded-full bg-brand-blue/10 dark:bg-brand-blue/20 text-brand-blue dark:text-brand-blue-light flex items-center justify-center shadow-inner">
+                        <FaCloudUploadAlt size={24} />
+                      </div>
+                      <span className="text-sm font-bold text-slate-800 dark:text-white">
+                        Haga clic aquí para seleccionar múltiples fotos
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        o arrastre y suelte todas sus imágenes aquí a la vez (JPG, PNG, WEBP)
+                      </span>
+                      <span className="mt-3 px-4 py-2 bg-brand-blue hover:bg-brand-blue-light text-white text-xs font-bold rounded-xl shadow-md transition-all hover:scale-105">
+                        Explorar Fotos en su dispositivo...
+                      </span>
+                    </label>
+                  )}
+                </div>
+
+                {/* Thumbnail Gallery Preview */}
+                {formImages.length > 0 && (
+                  <div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+                      <span>La primera foto será la <strong>portada principal</strong>. Puede cambiar el orden usando el botón de estrella.</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700 max-h-56 overflow-y-auto">
+                      {formImages.map((imgUrl, index) => (
+                        <div
+                          key={index}
+                          className={`relative group aspect-video rounded-xl overflow-hidden border shadow-sm transition-all bg-slate-200 dark:bg-slate-700 ${
+                            index === 0
+                              ? 'border-brand-blue ring-2 ring-brand-blue/40'
+                              : 'border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Vista previa ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+
+                          {/* Badge if main image */}
+                          {index === 0 ? (
+                            <div className="absolute top-1.5 left-1.5 px-2 py-0.5 bg-brand-blue/90 text-white text-[10px] font-bold rounded-md shadow-md flex items-center gap-1 backdrop-blur-xs">
+                              <FaStar size={9} className="text-amber-300" />
+                              Principal
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleMakeMainImage(index)}
+                              className="absolute top-1.5 left-1.5 px-2 py-0.5 bg-black/60 hover:bg-brand-blue text-white text-[10px] font-semibold rounded-md opacity-0 group-hover:opacity-100 transition-all cursor-pointer shadow-md flex items-center gap-1"
+                              title="Establecer como foto principal"
+                            >
+                              <FaStar size={9} />
+                              Hacer principal
+                            </button>
+                          )}
+
+                          {/* Remove button */}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(index)}
+                            className="absolute top-1.5 right-1.5 p-1.5 bg-red-600/90 hover:bg-red-700 text-white rounded-full shadow-md transition-all hover:scale-110 cursor-pointer"
+                            title="Eliminar foto"
+                          >
+                            <FaTrashAlt size={11} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {/* Upload options grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  {/* File Selector */}
-                  <div className="flex flex-col justify-center p-3 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/20 rounded-xl">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Cargar de la computadora o celular
-                    </span>
-                    <label className="px-3 py-2 bg-brand-blue hover:bg-brand-blue-light text-white text-xs font-bold rounded-lg text-center cursor-pointer shadow-sm transition-all hover:scale-[1.01]">
-                      <span>Seleccionar Foto...</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-
-                  {/* URL Input */}
-                  <div className="flex flex-col justify-center p-3 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/20 rounded-xl">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Pegar enlace de internet
-                    </span>
+                {/* Internet URL Paste Input */}
+                <div className="p-3 border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/20 rounded-xl">
+                  <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-0.5">
+                    ¿Desea agregar un enlace de internet?
+                  </span>
+                  <span className="block text-[11px] text-slate-400 mb-2">
+                    Pegue el enlace directo de una foto web si lo prefiere.
+                  </span>
+                  <div className="flex gap-2">
                     <input
                       type="text"
-                      value={formImage}
-                      onChange={e => setFormImage(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-blue text-slate-800 dark:text-white"
+                      value={newImageUrl}
+                      onChange={e => setNewImageUrl(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddImageUrl();
+                        }
+                      }}
+                      className="grow px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-blue text-slate-800 dark:text-white"
                       placeholder="https://ejemplo.com/foto.jpg"
                     />
+                    <button
+                      type="button"
+                      onClick={handleAddImageUrl}
+                      className="px-4 py-2 bg-brand-green hover:bg-brand-green-light text-white text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-sm"
+                    >
+                      Agregar enlace
+                    </button>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -480,13 +658,19 @@ export default function Arquitectura() {
               ✕
             </button>
 
-            {/* Left Column: Full-size project image */}
-            <div className="w-full md:w-1/2 h-64 md:h-auto bg-slate-100 dark:bg-slate-950 relative flex items-center justify-center">
-              <img
-                src={selectedProject.image}
-                alt={selectedProject.title}
-                className="w-full h-full object-cover"
-              />
+            {/* Left Column: Full-size project image or Carousel */}
+            <div className="w-full md:w-1/2 h-64 md:h-auto bg-slate-100 dark:bg-slate-950 relative flex items-center justify-center min-h-64">
+              {selectedProject.images && selectedProject.images.length > 1 ? (
+                <div className="w-full h-full min-h-64">
+                  <Carousel slides={selectedProject.images} />
+                </div>
+              ) : (
+                <img
+                  src={selectedProject.image}
+                  alt={selectedProject.title}
+                  className="w-full h-full object-cover"
+                />
+              )}
             </div>
 
             {/* Right Column: Title, Location & CTA */}
