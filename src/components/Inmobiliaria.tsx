@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaClipboardCheck, FaHome, FaTasks, FaKey, FaBed, FaBath, FaRulerCombined, FaMapMarkerAlt, FaEdit, FaTrashAlt, FaWhatsapp, FaEnvelope } from 'react-icons/fa';
+import { FaClipboardCheck, FaHome, FaTasks, FaKey, FaBed, FaBath, FaRulerCombined, FaMapMarkerAlt, FaEdit, FaTrashAlt, FaWhatsapp, FaEnvelope, FaCloudUploadAlt, FaStar, FaSpinner } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import Carousel from './Carousel';
 import Footer from './Footer';
@@ -7,6 +7,7 @@ import SEO from './SEO';
 import { useAdmin } from '../context/AdminContext';
 import type { Property } from '../types';
 import { cleanInputString } from '../lib/security';
+import { optimizeMultipleImages } from '../lib/imageOptimizer';
 
 export default function Inmobiliaria() {
   const services = [
@@ -82,6 +83,8 @@ export default function Inmobiliaria() {
   const [formDescription, setFormDescription] = useState('');
   const [formImages, setFormImages] = useState<string[]>([]);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleOpenAddModal = () => {
     setEditingProperty(null);
@@ -97,6 +100,8 @@ export default function Inmobiliaria() {
     setFormDescription('');
     setFormImages([]);
     setNewImageUrl('');
+    setIsProcessingImages(false);
+    setIsDragging(false);
     setIsModalOpen(true);
   };
 
@@ -114,6 +119,8 @@ export default function Inmobiliaria() {
     setFormDescription(prop.description);
     setFormImages(prop.images || []);
     setNewImageUrl('');
+    setIsProcessingImages(false);
+    setIsDragging(false);
     setIsModalOpen(true);
   };
 
@@ -139,25 +146,58 @@ export default function Inmobiliaria() {
     setFormImages(prev => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      Array.from(files).forEach(file => {
-        if (!file.type.startsWith('image/')) {
-          alert('Solo se permiten archivos de imagen (JPEG, PNG, WEBP).');
-          return;
-        }
-        if (file.size > 4 * 1024 * 1024) {
-          alert(`El archivo ${file.name} supera el límite de 4MB.`);
-          return;
-        }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          setFormImages(prev => [...prev, base64]);
-        };
-        reader.readAsDataURL(file);
-      });
+  const handleMakeMainImage = (index: number) => {
+    if (index === 0) return;
+    setFormImages(prev => {
+      const copy = [...prev];
+      const [selected] = copy.splice(index, 1);
+      return [selected, ...copy];
+    });
+  };
+
+  const processFiles = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    setIsProcessingImages(true);
+    try {
+      const { successful, errors } = await optimizeMultipleImages(files);
+      if (errors.length > 0) {
+        alert(errors.join('\n'));
+      }
+      if (successful.length > 0) {
+        setFormImages(prev => [...prev, ...successful]);
+      }
+    } catch (err) {
+      alert('Error al procesar las fotos seleccionadas.');
+    } finally {
+      setIsProcessingImages(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      await processFiles(e.target.files);
+      e.target.value = '';
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processFiles(e.dataTransfer.files);
     }
   };
 
@@ -615,83 +655,161 @@ export default function Inmobiliaria() {
 
                 {/* Images Visual Manager */}
                 <div className="md:col-span-2 space-y-4">
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                    Fotos de la Propiedad
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Galería de Fotos
+                      </label>
+                      <span className="px-2 py-0.5 bg-brand-blue/10 dark:bg-brand-blue/20 text-brand-blue dark:text-brand-blue-light text-xs font-semibold rounded-full">
+                        {formImages.length} {formImages.length === 1 ? 'foto' : 'fotos'}
+                      </span>
+                    </div>
+                    {formImages.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm('¿Desea eliminar todas las fotos cargadas?')) {
+                            setFormImages([]);
+                          }
+                        }}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium cursor-pointer transition-colors"
+                      >
+                        Eliminar todas
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Drag & Drop Multi-Image Upload Area */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                      isDragging
+                        ? 'border-brand-blue bg-brand-blue/10 scale-[1.01]'
+                        : 'border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 hover:border-brand-blue/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      id="property-multi-images"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+
+                    {isProcessingImages ? (
+                      <div className="py-4 flex flex-col items-center justify-center gap-2 text-brand-blue">
+                        <FaSpinner className="animate-spin" size={28} />
+                        <span className="text-sm font-semibold">Procesando y optimizando fotos...</span>
+                        <span className="text-xs text-slate-400">Por favor espere un momento</span>
+                      </div>
+                    ) : (
+                      <label
+                        htmlFor="property-multi-images"
+                        className="flex flex-col items-center justify-center cursor-pointer select-none"
+                      >
+                        <div className="w-12 h-12 mb-2 rounded-full bg-brand-blue/10 dark:bg-brand-blue/20 text-brand-blue dark:text-brand-blue-light flex items-center justify-center shadow-inner">
+                          <FaCloudUploadAlt size={24} />
+                        </div>
+                        <span className="text-sm font-bold text-slate-800 dark:text-white">
+                          Haga clic aquí para seleccionar múltiples fotos
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          o arrastre y suelte todas sus imágenes aquí a la vez (JPG, PNG, WEBP)
+                        </span>
+                        <span className="mt-3 px-4 py-2 bg-brand-blue hover:bg-brand-blue-light text-white text-xs font-bold rounded-xl shadow-md transition-all hover:scale-105">
+                          Explorar Fotos en su dispositivo...
+                        </span>
+                      </label>
+                    )}
+                  </div>
 
                   {/* Thumbnail Gallery Preview */}
-                  {formImages.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-800">
-                      {formImages.map((imgUrl, index) => (
-                        <div key={index} className="relative group aspect-video rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100">
-                          <img
-                            src={imgUrl}
-                            alt={`Vista previa ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(index)}
-                            className="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md transition-transform hover:scale-110 cursor-pointer"
-                            title="Eliminar foto"
+                  {formImages.length > 0 && (
+                    <div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+                        <span>La primera foto será la <strong>portada principal</strong>. Puede cambiar el orden usando el botón de estrella.</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700 max-h-60 overflow-y-auto">
+                        {formImages.map((imgUrl, index) => (
+                          <div
+                            key={index}
+                            className={`relative group aspect-video rounded-xl overflow-hidden border shadow-sm transition-all bg-slate-200 dark:bg-slate-700 ${
+                              index === 0
+                                ? 'border-brand-blue ring-2 ring-brand-blue/40'
+                                : 'border-slate-200 dark:border-slate-700'
+                            }`}
                           >
-                            <FaTrashAlt size={10} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-400">
-                      No hay fotos cargadas. Suba fotos desde su dispositivo o agregue un enlace de internet.
+                            <img
+                              src={imgUrl}
+                              alt={`Vista previa ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+
+                            {/* Badge if main image */}
+                            {index === 0 ? (
+                              <div className="absolute top-1.5 left-1.5 px-2 py-0.5 bg-brand-blue/90 text-white text-[10px] font-bold rounded-md shadow-md flex items-center gap-1 backdrop-blur-xs">
+                                <FaStar size={9} className="text-amber-300" />
+                                Principal
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleMakeMainImage(index)}
+                                className="absolute top-1.5 left-1.5 px-2 py-0.5 bg-black/60 hover:bg-brand-blue text-white text-[10px] font-semibold rounded-md opacity-0 group-hover:opacity-100 transition-all cursor-pointer shadow-md flex items-center gap-1"
+                                title="Establecer como foto principal"
+                              >
+                                <FaStar size={9} />
+                                Hacer principal
+                              </button>
+                            )}
+
+                            {/* Remove button */}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(index)}
+                              className="absolute top-1.5 right-1.5 p-1.5 bg-red-600/90 hover:bg-red-700 text-white rounded-full shadow-md transition-all hover:scale-110 cursor-pointer"
+                              title="Eliminar foto"
+                            >
+                              <FaTrashAlt size={11} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
-                  {/* Upload Actions Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* File Upload Selector */}
-                    <div className="flex flex-col justify-center p-4 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/20 rounded-xl hover:bg-slate-100/50 transition-colors">
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Subir fotos desde la computadora o celular
-                      </span>
-                      <span className="text-[10px] text-slate-400 mb-3">
-                        (Puede seleccionar una o varias fotos a la vez)
-                      </span>
-                      <label className="px-4 py-2 bg-brand-blue hover:bg-brand-blue-light text-white text-xs font-bold rounded-lg text-center cursor-pointer shadow-sm transition-all hover:scale-[1.01]">
-                        <span>Seleccionar Fotos...</span>
-                        <input
-                          type="file"
-                          multiple
-                          accept="image/*"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-
-                    {/* Internet URL Paste Input */}
-                    <div className="flex flex-col justify-center p-4 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/20 rounded-xl">
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Pegar enlace de foto de internet
-                      </span>
-                      <span className="text-[10px] text-slate-400 mb-3">
-                        (Si copió la dirección de una foto de internet, péguela aquí)
-                      </span>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newImageUrl}
-                          onChange={e => setNewImageUrl(e.target.value)}
-                          className="grow px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-blue text-slate-800 dark:text-white"
-                          placeholder="https://ejemplo.com/foto.jpg"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddImageUrl}
-                          className="px-3 py-1.5 bg-brand-green hover:bg-brand-green-light text-white text-xs font-bold rounded-lg cursor-pointer"
-                        >
-                          Agregar
-                        </button>
-                      </div>
+                  {/* Internet URL Paste Input */}
+                  <div className="p-3.5 border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/20 rounded-xl">
+                    <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-0.5">
+                      ¿Desea agregar un enlace de internet?
+                    </span>
+                    <span className="block text-[11px] text-slate-400 mb-2">
+                      Pegue el enlace directo de una foto web si lo prefiere.
+                    </span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newImageUrl}
+                        onChange={e => setNewImageUrl(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddImageUrl();
+                          }
+                        }}
+                        className="grow px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-blue text-slate-800 dark:text-white"
+                        placeholder="https://ejemplo.com/foto.jpg"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddImageUrl}
+                        className="px-4 py-2 bg-brand-green hover:bg-brand-green-light text-white text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-sm"
+                      >
+                        Agregar enlace
+                      </button>
                     </div>
                   </div>
                 </div>

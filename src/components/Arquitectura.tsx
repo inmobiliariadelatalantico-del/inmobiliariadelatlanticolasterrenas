@@ -6,6 +6,7 @@ import SEO from './SEO';
 import { useAdmin } from '../context/AdminContext';
 import type { Project } from '../types';
 import { cleanInputString } from '../lib/security';
+import { optimizeImageFile } from '../lib/imageOptimizer';
 
 export default function Arquitectura() {
   const services = [
@@ -101,23 +102,17 @@ export default function Arquitectura() {
     });
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        alert('Solo se permiten archivos de imagen (JPEG, PNG, WEBP).');
-        return;
+      try {
+        const optimized = await optimizeImageFile(file);
+        setFormImage(optimized);
+      } catch (err) {
+        alert((err as Error).message || 'Error al procesar la imagen.');
+      } finally {
+        e.target.value = '';
       }
-      if (file.size > 4 * 1024 * 1024) {
-        alert(`El archivo supera el límite de 4MB.`);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setFormImage(base64);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
